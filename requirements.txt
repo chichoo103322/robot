@@ -1,0 +1,24 @@
+# Humanoid Robot - Upper Task Planning & Communication System
+# Python 3.10+
+
+# Core
+numpy>=1.24.0
+
+# Communication
+websockets>=11.0
+pyzmq>=25.0
+
+# UI (Member B)
+PyQt6>=6.5.0
+pyqtgraph>=0.13.0
+
+# Vision / Obstacle Avoidance (Member A)
+opencv-python>=4.8.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Utilities
+pydantic>=2.0.0
+loguru>=0.7.0
