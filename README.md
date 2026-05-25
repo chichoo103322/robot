@@ -104,7 +104,10 @@ pip install -r requirements.txt
 # 启动仿真服务器 + 客户端（headless 模式）
 python scripts/run_simulation.py
 
-# 带UI界面
+# 带 Web 控制面板（推荐）— 浏览器打开 http://localhost:8080
+python scripts/run_simulation.py --web
+
+# 带 PyQt6 桌面 UI
 python scripts/run_simulation.py --ui
 
 # 仅启动服务器（供其他成员连接测试）

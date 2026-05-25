@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUMANOID ROBOT CONTROL SYSTEM // 人形机器人控制系统</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   MECHA INDUSTRIAL COCKPIT — ROBOT COMMAND CENTER
+   ============================================================ */
+
+:root {
+  /* Core palette */
+  --bg-deep:        #060b10;
+  --bg-panel:       #0c141c;
+  --bg-surface:     #111b24;
+  --bg-elevated:    #162231;
+  --border-subtle:  #1a2a3a;
+  --border-active:  #1e3a54;
+
+  /* Tactical HUD colors */
+  --amber:          #ff8c00;
+  --amber-dim:      #cc6600;
+  --amber-glow:     rgba(255,140,0,0.18);
+  --cyan:           #00e5ff;
+  --cyan-dim:       #008b9a;
+  --cyan-glow:      rgba(0,229,255,0.15);
+  --alert-red:      #ff1744;
+  --alert-red-glow: rgba(255,23,68,0.25);
+  --green:          #00e676;
+  --green-glow:     rgba(0,230,118,0.18);
+
+  /* Text */
+  --text-primary:   #dde4ec;
+  --text-secondary: #8899aa;
+  --text-dim:       #556677;
+
+  /* Typography */
+  --font-display:   'Orbitron', system-ui, sans-serif;
+  --font-mono:      'Share Tech Mono', 'JetBrains Mono', monospace;
+
+  /* Spacing */
+  --gap:            10px;
+  --radius:         2px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* ── Scanline overlay (subtle CRT effect) ─────────────── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent, transparent 2px,
+    rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+  );
+}
+
+/* ── Hex grid background ─────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: -1;
+  background-image:
+    url("data:image/svg+xml,%3Csvg width='60' height='52' viewBox='0 0 60 52' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 0l30 17.3v34.6H30L0 51.9V17.3L30 0z' fill='none' stroke='%23111b24' stroke-width='0.5'/%3E%3C/svg%3E");
+  background-size: 40px 34.6px;
+  opacity: 0.5;
+}
+
+/* ═══════════════════════════════════════════════════════
+   LAYOUT
+   ═══════════════════════════════════════════════════════ */
+#app {
+  display: grid;
+  height: 100vh;
+  grid-template-columns: 300px 1fr 320px;
+  grid-template-rows: 48px 1fr auto 32px;
+  gap: 8px;
+  padding: 8px;
+  position: relative; z-index: 1;
+}
+
+/* ── Top bar ─────────────────────────────────────────── */
+#topbar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 18px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-bottom: 2px solid var(--amber-dim);
+  position: relative;
+}
+#topbar::after {
+  content: '';
+  position: absolute; bottom: -2px; left: 0; right: 70%;
+  height: 2px;
+  background: var(--amber);
+  box-shadow: 0 0 12px var(--amber-glow);
+}
+#topbar .logo {
+  font-family: var(--font-display);
+  font-size: 13px; font-weight: 700; letter-spacing: 1.5px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+#topbar .logo span { color: var(--amber); }
+#topbar .conn-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10px; color: var(--text-secondary);
+  flex-shrink: 0;
+}
+#topbar .conn-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green-glow);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+#topbar .conn-dot.disconnected {
+  background: var(--alert-red);
+  box-shadow: 0 0 8px var(--alert-red-glow);
+  animation: none;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* ── Bottom bar ──────────────────────────────────────── */
+#bottombar {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 14px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  font-size: 11px; color: var(--text-dim);
+}
+#bottombar .clock {
+  font-family: var(--font-display);
+  font-size: 13px; color: var(--amber);
+  letter-spacing: 2px;
+}
+
+/* ── Panels ──────────────────────────────────────────── */
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  position: relative;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-display);
+  font-size: 10px; font-weight: 500; letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+.panel-header .dot {
+  width: 6px; height: 6px; border-radius: 50%; margin-right: 8px;
+}
+.panel-header .dot.amber { background: var(--amber); box-shadow: 0 0 6px var(--amber-glow); }
+.panel-header .dot.cyan  { background: var(--cyan); box-shadow: 0 0 6px var(--cyan-glow); }
+.panel-header .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green-glow); }
+.panel-body {
+  flex: 1; padding: 10px 12px; overflow-y: auto;
+}
+
+/* ── Left column ─────────────────────────────────────── */
+#left-col {
+  display: flex; flex-direction: column; gap: var(--gap);
+}
+
+/* ── Right column ────────────────────────────────────── */
+#right-col {
+  display: flex; flex-direction: column; gap: var(--gap);
+}
+
+/* ═══════════════════════════════════════════════════════
+   STATUS TELEMETRY PANEL
+   ═══════════════════════════════════════════════════════ */
+.telemetry-grid {
+  display: grid; gap: 6px;
+}
+.telemetry-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+.telemetry-label {
+  font-size: 11px; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.telemetry-value {
+  font-family: var(--font-display);
+  font-size: 14px; font-weight: 600; letter-spacing: 1px;
+}
+.telemetry-value.state-idle    { color: var(--cyan); }
+.telemetry-value.state-moving  { color: var(--green); }
+.telemetry-value.state-avoiding{ color: var(--amber); }
+.telemetry-value.state-stopped { color: var(--alert-red); }
+.telemetry-value.state-error   { color: var(--alert-red); }
+
+/* Battery gauge */
+.battery-gauge {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+}
+.battery-outer {
+  flex: 1; height: 10px; background: var(--bg-deep);
+  border: 1px solid var(--border-subtle); position: relative;
+}
+.battery-fill {
+  height: 100%; transition: width 0.4s ease;
+  background: linear-gradient(90deg, var(--alert-red), var(--amber), var(--green));
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.4);
+}
+.battery-label {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  min-width: 42px; text-align: right;
+}
+
+/* Position display */
+.pos-display {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
+}
+.pos-cell {
+  text-align: center; padding: 6px 4px;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+}
+.pos-axis {
+  font-size: 9px; color: var(--text-dim); letter-spacing: 1px;
+}
+.pos-value {
+  font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  color: var(--cyan);
+}
+
+/* ═══════════════════════════════════════════════════════
+   CONTROL BUTTONS
+   ═══════════════════════════════════════════════════════ */
+.control-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.ctrl-btn {
+  font-family: var(--font-display);
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 12px 8px; border: 1px solid var(--border-subtle);
+  background: var(--bg-surface); color: var(--text-secondary);
+  cursor: pointer; transition: all 0.15s ease;
+  position: relative; overflow: hidden;
+}
+.ctrl-btn:hover {
+  border-color: var(--border-active);
+  color: var(--text-primary);
+}
+.ctrl-btn:active { transform: scale(0.97); }
+.ctrl-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: transparent; transition: background 0.15s ease;
+}
+.ctrl-btn.btn-start   { border-left: 3px solid var(--green); }
+.ctrl-btn.btn-start:hover::before   { background: var(--green-glow); }
+.ctrl-btn.btn-stop    { border-left: 3px solid var(--alert-red); }
+.ctrl-btn.btn-stop:hover::before    { background: var(--alert-red-glow); }
+.ctrl-btn.btn-pause   { border-left: 3px solid var(--amber); }
+.ctrl-btn.btn-pause:hover::before   { background: var(--amber-glow); }
+.ctrl-btn.btn-resume  { border-left: 3px solid var(--cyan); }
+.ctrl-btn.btn-resume:hover::before  { background: var(--cyan-glow); }
+.ctrl-btn.btn-emergency {
+  grid-column: 1 / -1;
+  border-left: 3px solid var(--alert-red);
+  color: var(--alert-red);
+  font-size: 12px; letter-spacing: 3px;
+}
+.ctrl-btn.btn-emergency:hover {
+  background: var(--alert-red); color: #fff;
+  box-shadow: 0 0 24px var(--alert-red-glow);
+}
+
+/* Manual action */
+.action-selector {
+  display: flex; gap: 6px; padding: 4px 0;
+}
+.action-selector select {
+  flex: 1; padding: 8px 10px;
+  background: var(--bg-surface); color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  font-family: var(--font-mono); font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.action-selector select:focus {
+  border-color: var(--amber);
+}
+.btn-send {
+  padding: 8px 16px;
+  background: var(--bg-surface); color: var(--amber);
+  border: 1px solid var(--amber-dim);
+  font-family: var(--font-display); font-size: 10px;
+  letter-spacing: 1.5px; cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-send:hover {
+  background: var(--amber); color: #000;
+  box-shadow: 0 0 16px var(--amber-glow);
+}
+
+/* ═══════════════════════════════════════════════════════
+   VISION DISPLAY
+   ═══════════════════════════════════════════════════════ */
+#vision-panel {
+  grid-column: 2; grid-row: 2;
+}
+.vision-container {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, #0a1620 0%, #060b10 100%);
+  position: relative; min-height: 360px;
+}
+.vision-placeholder {
+  text-align: center; color: var(--text-dim);
+}
+.vision-placeholder .icon-eye {
+  width: 80px; height: 80px; margin: 0 auto 16px;
+  border: 2px solid var(--border-subtle); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.vision-placeholder .icon-eye::before {
+  content: ''; width: 24px; height: 24px;
+  border: 2px solid var(--cyan-dim); border-radius: 50%;
+}
+.vision-placeholder .icon-eye::after {
+  content: ''; position: absolute; width: 60px; height: 60px;
+  border: 1px dashed var(--border-subtle); border-radius: 50%;
+  animation: spin 10s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.vision-hud {
+  position: absolute; inset: 0; pointer-events: none;
+}
+.vision-hud .corner {
+  position: absolute; width: 24px; height: 24px;
+  border-color: var(--cyan-dim); border-style: solid;
+}
+.vision-hud .corner.tl { top: 12px; left: 12px; border-width: 2px 0 0 2px; }
+.vision-hud .corner.tr { top: 12px; right: 12px; border-width: 2px 2px 0 0; }
+.vision-hud .corner.bl { bottom: 12px; left: 12px; border-width: 0 0 2px 2px; }
+.vision-hud .corner.br { bottom: 12px; right: 12px; border-width: 0 2px 2px 0; }
+.vision-crosshair {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 40px; height: 40px;
+}
+.vision-crosshair::before,
+.vision-crosshair::after {
+  content: ''; position: absolute; background: rgba(0,229,255,0.3);
+}
+.vision-crosshair::before {
+  top: 50%; left: 0; right: 0; height: 1px; transform: translateY(-50%);
+}
+.vision-crosshair::after {
+  left: 50%; top: 0; bottom: 0; width: 1px; transform: translateX(-50%);
+}
+.vision-label {
+  position: absolute; bottom: 16px; left: 16px;
+  font-family: var(--font-display); font-size: 9px;
+  color: var(--cyan-dim); letter-spacing: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════
+   TASK / ACTION PROGRESS
+   ═══════════════════════════════════════════════════════ */
+#mid-bottom {
+  grid-column: 2; grid-row: 3;
+  display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap);
+}
+.progress-bar-outer {
+  height: 24px; background: var(--bg-deep);
+  border: 1px solid var(--border-subtle); position: relative;
+  margin-top: 6px;
+}
+.progress-bar-fill {
+  height: 100%; transition: width 0.3s ease;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--cyan), var(--cyan) 4px,
+    var(--cyan-dim) 4px, var(--cyan-dim) 8px
+  );
+  box-shadow: inset 0 0 10px rgba(0,229,255,0.3);
+}
+.progress-bar-text {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center;
+  font-family: var(--font-display); font-size: 10px;
+  letter-spacing: 2px; color: #fff;
+  text-shadow: 0 0 8px rgba(0,0,0,0.8);
+}
+.task-list { margin-top: 6px; }
+.task-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 10px; margin-bottom: 3px;
+  background: var(--bg-surface); border: 1px solid var(--border-subtle);
+  font-size: 11px;
+}
+.task-item.active { border-left: 3px solid var(--cyan); }
+.task-item .task-badge {
+  font-size: 9px; padding: 2px 6px;
+  border: 1px solid var(--border-subtle);
+}
+.task-badge.running { color: var(--green); border-color: var(--green); }
+.task-badge.stopped { color: var(--text-dim); }
+.task-badge.paused  { color: var(--amber); border-color: var(--amber); }
+
+/* ═══════════════════════════════════════════════════════
+   LOG VIEWER
+   ═══════════════════════════════════════════════════════ */
+#log-panel {
+  flex: 1; display: flex; flex-direction: column;
+}
+.log-filters {
+  display: flex; gap: 4px; padding: 6px 10px;
+  background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.log-filter-btn {
+  padding: 3px 10px; font-size: 10px; letter-spacing: 1px;
+  background: transparent; color: var(--text-dim); border: 1px solid transparent;
+  cursor: pointer; font-family: var(--font-mono);
+  transition: all 0.15s ease;
+}
+.log-filter-btn.active, .log-filter-btn:hover {
+  color: var(--text-primary); border-color: var(--border-active);
+}
+.log-filter-btn.level-error.active { color: var(--alert-red); border-color: var(--alert-red); }
+.log-filter-btn.level-warning.active { color: var(--amber); border-color: var(--amber); }
+.log-filter-btn.level-info.active { color: var(--cyan); border-color: var(--cyan); }
+.log-entries {
+  flex: 1; overflow-y: auto; padding: 6px 0;
+  font-size: 11px; line-height: 1.6;
+}
+.log-entry {
+  display: grid; grid-template-columns: 60px 48px 80px 1fr;
+  gap: 6px; padding: 3px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.02);
+  align-items: baseline;
+}
+.log-entry .log-time { color: var(--text-dim); }
+.log-entry .log-level {
+  font-size: 9px; font-weight: 600; text-align: center;
+  padding: 1px 4px; border-radius: 1px;
+}
+.log-entry .log-level.error   { color: var(--alert-red); background: var(--alert-red-glow); }
+.log-entry .log-level.warning  { color: var(--amber); background: var(--amber-glow); }
+.log-entry .log-level.info     { color: var(--cyan); background: var(--cyan-glow); }
+.log-entry .log-level.debug    { color: var(--text-dim); }
+.log-entry .log-source { color: var(--text-secondary); }
+.log-entry .log-msg    { color: var(--text-primary); }
+
+/* ═══════════════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════════════ */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-active); }
+
+/* ═══════════════════════════════════════════════════════
+   NOTIFICATIONS
+   ═══════════════════════════════════════════════════════ */
+.toast {
+  position: fixed; top: 16px; right: 16px; z-index: 10000;
+  padding: 12px 20px;
+  font-family: var(--font-display); font-size: 11px; letter-spacing: 1.5px;
+  border: 1px solid;
+  animation: toast-in 0.3s ease, toast-out 0.3s ease 2s forwards;
+  pointer-events: none;
+}
+.toast.error { background: var(--alert-red-glow); border-color: var(--alert-red); color: var(--alert-red); }
+.toast.warn  { background: var(--amber-glow); border-color: var(--amber); color: var(--amber); }
+.toast.info  { background: var(--cyan-glow); border-color: var(--cyan); color: var(--cyan); }
+@keyframes toast-in  { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes toast-out { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(40px); } }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ═══════ TOP BAR ═══════ -->
+  <div id="topbar">
+    <div class="logo">HUMANOID<span>//</span>CONTROL</div>
+    <div class="conn-status">
+      <span id="conn-label">SYS LINK</span>
+      <div class="conn-dot disconnected" id="conn-dot"></div>
+    </div>
+  </div>
+
+  <!-- ═══════ LEFT COLUMN ═══════ -->
+  <div id="left-col" style="grid-column:1;grid-row:2;">
+    <!-- Status telemetry -->
+    <div class="panel">
+      <div class="panel-header"><div style="display:flex;align-items:center"><div class="dot cyan"></div>TELEMETRY // 遥测数据</div><span id="telemetry-clock" style="font-size:10px;color:var(--text-dim)">--</span></div>
+      <div class="panel-body" style="display:flex;flex-direction:column;gap:6px">
+        <div class="telemetry-item">
+          <span class="telemetry-label">SYSTEM STATE 系统状态</span>
+          <span class="telemetry-value state-idle" id="val-state">IDLE</span>
+        </div>
+        <div class="battery-gauge">
+          <div class="battery-outer"><div class="battery-fill" id="battery-fill" style="width:100%"></div></div>
+          <span class="battery-label" id="val-battery">100%</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:4px">POSITION 位置 (X / Y / Z) m</div>
+        <div class="pos-display">
+          <div class="pos-cell"><div class="pos-axis">X</div><div class="pos-value" id="val-pos-x">0.00</div></div>
+          <div class="pos-cell"><div class="pos-axis">Y</div><div class="pos-value" id="val-pos-y">0.00</div></div>
+          <div class="pos-cell"><div class="pos-axis">Z</div><div class="pos-value" id="val-pos-z">0.00</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--text-dim);letter-spacing:1px;margin-top:4px">ORIENTATION 姿态 (ROLL / PITCH / YAW) °</div>
+        <div class="pos-display">
+          <div class="pos-cell"><div class="pos-axis">ROLL</div><div class="pos-value" id="val-rot-r" style="color:var(--amber)">0.0</div></div>
+          <div class="pos-cell"><div class="pos-axis">PITCH</div><div class="pos-value" id="val-rot-p" style="color:var(--amber)">0.0</div></div>
+          <div class="pos-cell"><div class="pos-axis">YAW</div><div class="pos-value" id="val-rot-y" style="color:var(--amber)">0.0</div></div>
+        </div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">VELOCITY 速度</span>
+          <span class="telemetry-value" style="color:var(--cyan)" id="val-velocity">0.00 m/s</span>
+        </div>
+        <div class="telemetry-item" id="error-row" style="display:none;border-color:var(--alert-red)">
+          <span class="telemetry-label" style="color:var(--alert-red)">ERROR CODE 错误码</span>
+          <span class="telemetry-value state-error" id="val-error">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Control buttons -->
+    <div class="panel">
+      <div class="panel-header"><div style="display:flex;align-items:center"><div class="dot amber"></div>MISSION CONTROL // 任务控制</div></div>
+      <div class="panel-body">
+        <div class="control-grid">
+          <button class="ctrl-btn btn-start" id="btn-start" onclick="sendCmd('start_task')">▶ EXECUTE</button>
+          <button class="ctrl-btn btn-stop" id="btn-stop" onclick="sendCmd('stop_task')">■ ABORT</button>
+          <button class="ctrl-btn btn-pause" id="btn-pause" onclick="sendCmd('pause_task')">⏸ HOLD</button>
+          <button class="ctrl-btn btn-resume" id="btn-resume" onclick="sendCmd('resume_task')">▶ RESUME</button>
+          <button class="ctrl-btn btn-emergency" onclick="sendCmd('emergency_stop')">⚠ E-STOP 紧急停止</button>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:var(--text-dim);letter-spacing:1px">MANUAL ACTION 手动动作</div>
+        <div class="action-selector">
+          <select id="action-select">
+            <option value="walk_straight">WALK STRAIGHT / 直线行走</option>
+            <option value="turn_in_place">TURN IN PLACE / 原地掉头</option>
+            <option value="turn_walk">TURN WALK / 转弯行走</option>
+            <option value="stop">STOP / 停止</option>
+            <option value="walk_backward">WALK BACK / 后退</option>
+            <option value="sidestep">SIDESTEP / 侧移</option>
+          </select>
+          <button class="btn-send" onclick="sendManualAction()">SEND</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ CENTER: VISION ═══════ -->
+  <div class="panel" id="vision-panel">
+    <div class="panel-header"><div style="display:flex;align-items:center"><div class="dot cyan"></div>VISION FEED // 视觉画面</div><span style="font-size:10px;color:var(--text-dim)">CAM-01</span></div>
+    <div class="vision-container">
+      <div class="vision-placeholder">
+        <div class="icon-eye"></div>
+        <div style="font-family:var(--font-display);font-size:12px;letter-spacing:3px;color:var(--text-dim)">AWAITING VIDEO LINK</div>
+        <div style="font-size:10px;color:var(--text-dim);margin-top:4px">等待视频连接...</div>
+      </div>
+      <div class="vision-hud">
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+        <div class="vision-crosshair"></div>
+      </div>
+      <div class="vision-label">OPTICAL/FEED-01</div>
+    </div>
+  </div>
+
+  <!-- ═══════ CENTER BOTTOM: PROGRESS + TASKS ═══════ -->
+  <div id="mid-bottom">
+    <div class="panel">
+      <div class="panel-header"><div style="display:flex;align-items:center"><div class="dot green"></div>ACTION PROGRESS // 动作进度</div></div>
+      <div class="panel-body">
+        <div style="font-size:11px;color:var(--text-secondary)" id="current-action-label">NO ACTIVE ACTION</div>
+        <div class="progress-bar-outer">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+          <div class="progress-bar-text" id="progress-text">0%</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><div style="display:flex;align-items:center"><div class="dot amber"></div>TASK QUEUE // 任务队列</div></div>
+      <div class="panel-body task-list" id="task-list">
+        <div style="color:var(--text-dim);font-size:11px;text-align:center;padding:12px">NO TASKS QUEUED</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ RIGHT COLUMN: LOGS ═══════ -->
+  <div id="right-col" style="grid-column:3;grid-row:2;">
+    <div class="panel" id="log-panel">
+      <div class="panel-header"><div style="display:flex;align-items:center"><div class="dot green"></div>SYSTEM LOG // 系统日志</div><span id="log-count" style="font-size:10px;color:var(--text-dim)">0</span></div>
+      <div class="log-filters">
+        <button class="log-filter-btn active" onclick="setLogFilter('all')">ALL</button>
+        <button class="log-filter-btn level-error" onclick="setLogFilter('ERROR')">ERROR</button>
+        <button class="log-filter-btn level-warning" onclick="setLogFilter('WARNING')">WARN</button>
+        <button class="log-filter-btn level-info" onclick="setLogFilter('INFO')">INFO</button>
+        <button class="log-filter-btn" onclick="setLogFilter('DEBUG')">DEBUG</button>
+      </div>
+      <div class="log-entries" id="log-entries">
+        <div style="color:var(--text-dim);text-align:center;padding:20px">AWAITING SYSTEM DATA...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════ BOTTOM BAR ═══════ -->
+  <div id="bottombar">
+    <span>SYS://HUMANOID-CTRL-v1.0</span>
+    <span style="margin-left:auto">SESSION:</span>
+    <span style="color:var(--cyan);margin-right:20px" id="session-id">--</span>
+    <span class="clock" id="live-clock">00:00:00.000</span>
+    <span id="fps-display" style="font-family:var(--font-display);color:var(--text-dim);font-size:10px;margin-left:20px">0 FPS</span>
+    <span style="margin-left:16px;color:var(--amber)">● REC</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// HUMANOID ROBOT CONTROL — WEBSOCKET CLIENT
+// ═══════════════════════════════════════════════════════════
+
+const WS_URL = `ws://${location.hostname}:${location.port || 8080}/ws`;
+let ws = null;
+let logFilter = 'all';
+let frameCount = 0;
+let lastFPSTime = performance.now();
+
+// ── Connect ──────────────────────────────────────────────
+function connect() {
+  ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    document.getElementById('conn-dot').classList.remove('disconnected');
+    document.getElementById('conn-label').textContent = 'SYS LINK';
+    document.getElementById('session-id').textContent = Date.now().toString(36).toUpperCase();
+    toast('CONNECTION ESTABLISHED', 'info');
+  };
+  ws.onclose = () => {
+    document.getElementById('conn-dot').classList.add('disconnected');
+    document.getElementById('conn-label').textContent = 'NO LINK';
+    toast('CONNECTION LOST — RECONNECTING...', 'error');
+    setTimeout(connect, 2000);
+  };
+  ws.onerror = () => {
+    document.getElementById('conn-dot').classList.add('disconnected');
+  };
+  ws.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'state_update') updateUI(data);
+    } catch(err) {}
+    // FPS counter
+    frameCount++;
+    const now = performance.now();
+    if (now - lastFPSTime >= 1000) {
+      document.getElementById('fps-display').textContent = `${frameCount} FPS`;
+      frameCount = 0;
+      lastFPSTime = now;
+    }
+  };
+}
+
+// ── Send commands ────────────────────────────────────────
+function sendCmd(cmd, extraData = {}) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    toast('NO CONNECTION', 'error');
+    return;
+  }
+  ws.send(JSON.stringify({ cmd, data: extraData }));
+}
+
+function sendManualAction() {
+  const sel = document.getElementById('action-select');
+  sendCmd('send_action', { action_type: sel.value });
+}
+
+function setLogFilter(level) {
+  logFilter = level;
+  document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.log-filter-btn.level-${level.toLowerCase()}`)?.classList.add('active');
+  if (level === 'all') document.querySelector('.log-filter-btn').classList.add('active');
+  // Re-render logs from cache
+  if (lastLogs) renderLogs(lastLogs);
+}
+
+// ── Notifications ────────────────────────────────────────
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2300);
+}
+
+// ── UI Update ────────────────────────────────────────────
+let lastLogs = [];
+
+function updateUI(data) {
+  const s = data.status || {};
+  const task = data.current_task;
+  const action = data.current_action;
+  const tasks = data.tasks || [];
+
+  // State
+  const stateEl = document.getElementById('val-state');
+  stateEl.textContent = (s.state || 'idle').toUpperCase();
+  stateEl.className = 'telemetry-value state-' + (s.state || 'idle');
+
+  // Battery
+  const bat = Math.max(0, s.battery || 0);
+  document.getElementById('battery-fill').style.width = bat + '%';
+  document.getElementById('val-battery').textContent = bat.toFixed(0) + '%';
+  document.getElementById('val-battery').style.color = bat > 30 ? 'var(--green)' : bat > 15 ? 'var(--amber)' : 'var(--alert-red)';
+
+  // Position
+  const pos = s.position || [0,0,0];
+  document.getElementById('val-pos-x').textContent = pos[0].toFixed(2);
+  document.getElementById('val-pos-y').textContent = pos[1].toFixed(2);
+  document.getElementById('val-pos-z').textContent = pos[2].toFixed(2);
+
+  // Orientation
+  const rot = s.orientation || [0,0,0];
+  document.getElementById('val-rot-r').textContent = rot[0].toFixed(1);
+  document.getElementById('val-rot-p').textContent = rot[1].toFixed(1);
+  document.getElementById('val-rot-y').textContent = rot[2].toFixed(1);
+
+  // Velocity
+  document.getElementById('val-velocity').textContent = (s.velocity || 0).toFixed(2) + ' m/s';
+
+  // Error
+  const errRow = document.getElementById('error-row');
+  if (s.error_code) {
+    errRow.style.display = 'flex';
+    document.getElementById('val-error').textContent = s.error_code;
+  } else {
+    errRow.style.display = 'none';
+  }
+
+  // Action progress
+  const actionLabel = document.getElementById('current-action-label');
+  const progFill = document.getElementById('progress-fill');
+  const progText = document.getElementById('progress-text');
+  if (action) {
+    actionLabel.textContent = `${action.action_type.toUpperCase()} [${action.status.toUpperCase()}]`;
+    let prog = 0;
+    if (action.status === 'completed') prog = 100;
+    else if (action.status === 'running') prog = 50;
+    else if (action.status === 'pending') prog = 5;
+    progFill.style.width = prog + '%';
+    progText.textContent = prog + '%';
+  } else if (task && task.is_running && task.actions) {
+    const total = task.actions.length;
+    const idx = task.current_action_index || 0;
+    const pct = total > 0 ? Math.round((idx / total) * 100) : 0;
+    actionLabel.textContent = `TASK: ${task.name} — ACTION ${idx+1}/${total}`;
+    progFill.style.width = pct + '%';
+    progText.textContent = pct + '%';
+  } else {
+    actionLabel.textContent = 'NO ACTIVE ACTION';
+    progFill.style.width = '0%';
+    progText.textContent = '0%';
+  }
+
+  // Task list
+  const taskList = document.getElementById('task-list');
+  if (tasks.length === 0) {
+    taskList.innerHTML = '<div style="color:var(--text-dim);font-size:11px;text-align:center;padding:12px">NO TASKS QUEUED</div>';
+  } else {
+    taskList.innerHTML = tasks.map(t => {
+      let badgeClass = t.is_running ? 'running' : 'stopped';
+      let badgeText = t.is_running ? 'ACTIVE' : 'IDLE';
+      let activeClass = t.is_running ? ' active' : '';
+      let progress = t.actions ? `${t.current_action_index}/${t.actions.length}` : '0/0';
+      return `<div class="task-item${activeClass}">
+        <span>${t.name}</span>
+        <span style="color:var(--text-dim);font-size:10px">${progress} actions</span>
+        <span class="task-badge ${badgeClass}">${badgeText}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Logs
+  if (data.logs) {
+    lastLogs = data.logs;
+    renderLogs(data.logs);
+  }
+
+  // Clock
+  document.getElementById('telemetry-clock').textContent =
+    new Date().toLocaleTimeString('en-GB', { hour12: false });
+}
+
+function renderLogs(logs) {
+  const container = document.getElementById('log-entries');
+  const filtered = logFilter === 'all' ? logs : logs.filter(l => l.level === logFilter);
+
+  document.getElementById('log-count').textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="color:var(--text-dim);text-align:center;padding:12px">NO ENTRIES</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.map(l => {
+    const ts = new Date((l.timestamp || 0) * 1000).toLocaleTimeString('en-GB', { hour12: false });
+    const lvl = (l.level || 'info').toLowerCase();
+    const src = l.source || 'system';
+    const msg = l.message || '';
+    return `<div class="log-entry">
+      <span class="log-time">${ts}</span>
+      <span class="log-level ${lvl}">${lvl.toUpperCase()}</span>
+      <span class="log-source">[${src}]</span>
+      <span class="log-msg">${msg}</span>
+    </div>`;
+  }).join('');
+
+  container.scrollTop = container.scrollHeight;
+}
+
+// ── Live clock ───────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('live-clock').textContent =
+    now.toLocaleTimeString('en-GB', { hour12: false }) + '.' +
+    String(now.getMilliseconds()).padStart(3, '0');
+}
+setInterval(updateClock, 50);
+updateClock();
+
+// ── Keyboard shortcuts ───────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') sendCmd('emergency_stop');
+  if (e.key === 'Enter' && !e.target.closest('select')) sendCmd('start_task');
+  if (e.key === ' ' && !e.target.closest('select')) { e.preventDefault(); sendCmd('pause_task'); }
+});
+
+// ── Start ────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>

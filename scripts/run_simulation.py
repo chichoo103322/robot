@@ -14,8 +14,10 @@ import struct
 import threading
 import time
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "src")
+# Add project root to path so `from src.xxx import ...` works
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 class MockRobotServer:
@@ -96,12 +98,24 @@ class MockRobotServer:
 
     def _handle_command(self, conn: socket.socket, raw: bytes):
         try:
-            cmd = json.loads(raw.decode("utf-8"))
+            msg = json.loads(raw.decode("utf-8"))
         except Exception:
             return
 
-        action_type = cmd.get("action_type", "")
-        action_id = cmd.get("command_id", "")
+        msg_type = msg.get("type", "")
+
+        # Handle heartbeat — echo back immediately
+        if msg_type == "heartbeat":
+            self._send_msg(conn, {
+                "type": "heartbeat",
+                "seq": msg.get("seq", 0),
+                "timestamp": time.time(),
+            })
+            return
+
+        # Handle action command
+        action_type = msg.get("action_type", "")
+        action_id = msg.get("command_id", "")
         print(f"[MockRobot] Received: {action_type} (id={action_id})")
 
         # Simulate action execution delay
@@ -116,7 +130,7 @@ class MockRobotServer:
         })
 
         # Update mock position based on action
-        params = cmd.get("params", {})
+        params = msg.get("params", {})
         if action_type == "walk_straight":
             distance = params.get("distance_m", 0)
             self._position[1] += distance  # move forward in Y
@@ -151,7 +165,9 @@ class MockRobotServer:
 def main():
     parser = argparse.ArgumentParser(description="Robot simulation runner")
     parser.add_argument("--server-only", action="store_true", help="Run only the mock server")
-    parser.add_argument("--ui", action="store_true", help="Run client with UI")
+    parser.add_argument("--ui", action="store_true", help="Run client with PyQt6 UI")
+    parser.add_argument("--web", action="store_true", help="Run client with web dashboard")
+    parser.add_argument("--web-port", type=int, default=8080, help="Web dashboard port (default: 8080)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9090)
     args = parser.parse_args()
@@ -171,11 +187,13 @@ def main():
         return
 
     # Run the actual system
-    from src.main import run_headless, run_with_ui
+    from src.main import run_headless, run_with_ui, run_with_web
 
     try:
         if args.ui:
             run_with_ui(args.host, args.port)
+        elif args.web:
+            run_with_web("0.0.0.0", args.web_port, args.host, args.port)
         else:
             run_headless(args.host, args.port)
     finally:

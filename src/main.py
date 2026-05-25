@@ -60,6 +60,9 @@ def build_system():
                                                 f"Task '{task.name}' {event}")
     )
 
+    # C → A: action completion from robot
+    comm.on_action_complete(action_scheduler.mark_action_complete)
+
     # Heartbeat timeout → reconnect
     comm.on_heartbeat_timeout(lambda: log.warning("comm", "Heartbeat timeout — connection lost"))
 
@@ -165,6 +168,13 @@ def run_with_ui(host: str = "127.0.0.1", port: int = 9090):
     comm.disconnect()
 
 
+def run_with_web(web_host: str = "0.0.0.0", web_port: int = 8080,
+                 robot_host: str = "127.0.0.1", robot_port: int = 9090):
+    """Run the system with the web-based dashboard UI."""
+    from .web_server import run_web
+    run_web(web_host, web_port, robot_host, robot_port)
+
+
 if __name__ == "__main__":
     import sys
     mode = sys.argv[1] if len(sys.argv) > 1 else "headless"
@@ -173,5 +183,10 @@ if __name__ == "__main__":
 
     if mode == "ui":
         run_with_ui(host, port)
+    elif mode == "web":
+        web_port = int(sys.argv[2]) if len(sys.argv) > 2 else 8080
+        robot_host = sys.argv[3] if len(sys.argv) > 3 else "127.0.0.1"
+        robot_port = int(sys.argv[4]) if len(sys.argv) > 4 else 9090
+        run_with_web("0.0.0.0", web_port, robot_host, robot_port)
     else:
         run_headless(host, port)

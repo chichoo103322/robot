@@ -45,6 +45,7 @@ class APIService(ICommunication):
         # Callbacks for incoming data
         self._on_status_cb: Optional[Callable[[RobotStatus], None]] = None
         self._on_sensor_cb: Optional[Callable[[SensorData], None]] = None
+        self._on_action_complete_cb: Optional[Callable[[str, bool, str], None]] = None
 
         # Set up incoming data dispatch
         self._socket.on_data(self._handle_incoming_data)
@@ -86,6 +87,9 @@ class APIService(ICommunication):
 
     def on_sensor_data(self, callback: Callable[[SensorData], None]) -> None:
         self._on_sensor_cb = callback
+
+    def on_action_complete(self, callback: Callable[[str, bool, str], None]) -> None:
+        self._on_action_complete_cb = callback
 
     # ── Heartbeat ───────────────────────────────────────────────
 
@@ -130,12 +134,12 @@ class APIService(ICommunication):
 
         elif msg_type == "action_complete":
             # Action execution result from robot
-            action_id = msg.get("action_id", "")
-            success = msg.get("success", True)
-            error = msg.get("error", "")
-            # The ActionScheduler should register as a listener
-            if hasattr(self, "_on_action_complete_cb") and self._on_action_complete_cb:
-                self._on_action_complete_cb(action_id, success, error)
+            if self._on_action_complete_cb:
+                self._on_action_complete_cb(
+                    msg.get("action_id", ""),
+                    msg.get("success", True),
+                    msg.get("error", ""),
+                )
 
         elif msg_type == "error":
             # Robot error report
