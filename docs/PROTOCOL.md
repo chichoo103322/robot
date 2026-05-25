@@ -204,12 +204,9 @@
 - 根据指令更新模拟位置
 
 ```bash
-# 启动仿真服务器 + 客户端
+# 启动仿真服务器 + 客户端（headless模式）
 python scripts/run_simulation.py
 
 # 仅启动服务器
 python scripts/run_simulation.py --server-only
-
-# 启动带UI的客户端
-python scripts/run_simulation.py --ui
 ```

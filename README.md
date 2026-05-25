@@ -56,9 +56,11 @@ project4/
 ├── requirements.txt                    # Python 依赖
 ├── docs/
 │   ├── PROTOCOL.md                     # 通信协议文档（成员C必读）
-│   └── API.md                          # 模块接口规范（全员必读）
+│   ├── API.md                          # 模块接口规范（全员必读）
+│   ├── HANDOFF_B.md                    # 成员B交付文档（接口定义+验收标准）
+│   └── HANDOFF_C.md                    # 成员C交付文档（接口定义+验收标准）
 ├── src/
-│   ├── main.py                         # 主入口，组装所有模块
+│   ├── main.py                         # 主入口，组装所有模块（headless模式）
 │   ├── common/                         # 共享：接口、数据模型、枚举
 │   │   ├── interfaces.py               #   抽象接口（各成员的契约）
 │   │   ├── models.py                   #   数据模型（Action, Task, Command 等）
@@ -66,14 +68,16 @@ project4/
 │   ├── task_planner/                   # 成员A：任务规划与避障
 │   │   ├── task_manager.py             #   任务生命周期管理
 │   │   ├── action_scheduler.py         #   动作调度与优先级抢占
-│   │   ├── motion_planner.py           #   动作参数生成
+│   │   ├── motion_planner.py           #   动作参数生成（7种动作）
 │   │   ├── obstacle_detector.py        #   障碍物检测（深度图+LIDAR融合）
-│   │   └── avoidance_planner.py        #   避障路径规划
+│   │   ├── avoidance_planner.py        #   避障路径规划
+│   │   ├── vision_detector.py          #   视觉检测（模拟/深度/YOLO三模式）
+│   │   └── reactive_avoidance.py       #   实时避障监控闭环
 │   ├── status_ui/                      # 成员B：状态管理与界面
 │   │   ├── status_manager.py           #   中心状态存储
 │   │   ├── log_system.py               #   结构化日志
 │   │   ├── control_panel.py            #   控制面板逻辑
-│   │   └── dashboard.py                #   PyQt6 主界面
+│   │   └── dashboard.py                #   UI仪表盘
 │   └── communication/                  # 成员C：通信系统
 │       ├── socket_client.py            #   TCP Socket 连接
 │       ├── command_sender.py           #   可靠指令发送（队列+重试）
@@ -103,12 +107,6 @@ pip install -r requirements.txt
 ```bash
 # 启动仿真服务器 + 客户端（headless 模式）
 python scripts/run_simulation.py
-
-# 带 Web 控制面板（推荐）— 浏览器打开 http://localhost:8080
-python scripts/run_simulation.py --web
-
-# 带 PyQt6 桌面 UI
-python scripts/run_simulation.py --ui
 
 # 仅启动服务器（供其他成员连接测试）
 python scripts/run_simulation.py --server-only

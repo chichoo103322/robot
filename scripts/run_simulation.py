@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Simulation runner — starts a mock robot server for testing.
+"""Simulation runner -- starts a mock robot server for testing.
 
 Usage:
-    python scripts/run_simulation.py           # server + headless client
-    python scripts/run_simulation.py --ui      # server + UI client
-    python scripts/run_simulation.py --server-only  # server only (connect with another process)
+    python scripts/run_simulation.py                  # server + headless client
+    python scripts/run_simulation.py --server-only    # server only (connect with another process)
 """
 
 import argparse
@@ -104,7 +103,7 @@ class MockRobotServer:
 
         msg_type = msg.get("type", "")
 
-        # Handle heartbeat — echo back immediately
+        # Handle heartbeat -- echo back immediately
         if msg_type == "heartbeat":
             self._send_msg(conn, {
                 "type": "heartbeat",
@@ -165,9 +164,6 @@ class MockRobotServer:
 def main():
     parser = argparse.ArgumentParser(description="Robot simulation runner")
     parser.add_argument("--server-only", action="store_true", help="Run only the mock server")
-    parser.add_argument("--ui", action="store_true", help="Run client with PyQt6 UI")
-    parser.add_argument("--web", action="store_true", help="Run client with web dashboard")
-    parser.add_argument("--web-port", type=int, default=8080, help="Web dashboard port (default: 8080)")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=9090)
     args = parser.parse_args()
@@ -186,16 +182,11 @@ def main():
             server.stop()
         return
 
-    # Run the actual system
-    from src.main import run_headless, run_with_ui, run_with_web
+    # Run the actual system (headless mode only)
+    from src.main import run_headless
 
     try:
-        if args.ui:
-            run_with_ui(args.host, args.port)
-        elif args.web:
-            run_with_web("0.0.0.0", args.web_port, args.host, args.port)
-        else:
-            run_headless(args.host, args.port)
+        run_headless(args.host, args.port)
     finally:
         server.stop()
 

@@ -4,13 +4,9 @@
 # Core
 numpy>=1.24.0
 
-# Communication
+# Communication (Member C)
 websockets>=11.0
 pyzmq>=25.0
-
-# UI (Member B)
-PyQt6>=6.5.0
-pyqtgraph>=0.13.0
 
 # Vision / Obstacle Avoidance (Member A)
 opencv-python>=4.8.0
